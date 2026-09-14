@@ -1,84 +1,41 @@
-[README.md](https://github.com/user-attachments/files/28807245/README.md)
 # Representation, Transferability, and Trustworthy Uncertainty in Machine-Learning Prediction of the HOMO–LUMO Gap of Transition-Metal Complexes
 
-A fully reproducible, DFT-free machine-learning study built entirely on the public **tmQM** database (108,541 mononuclear transition-metal complexes, 3d/4d/5d). One notebook (or one script) reproduces every figure and table in the paper.
+Fully reproducible, DFT-free machine-learning study built on the public **tmQM** database (108,541 mononuclear transition-metal complexes, 3d/4d/5d). **One notebook reproduces every figure and table of the paper and of its revision.**
 
-## What it does (three pillars)
-
-1. **Representation hierarchy** - how much structural detail does the HOMO-LUMO gap need?
-   composition + coordination -> + RDKit descriptors -> SchNet on 3D geometry
-   (test R2 ~ 0.57 -> 0.63 -> 0.77; MAE 0.44 -> 0.30 eV), with SHAP interpretation.
-2. **Transferability** - leave-one-series-out and leave-one-metal-out for both tabular and
-   geometry models. In-domain accuracy collapses out-of-domain (median LOMO R2 ~ 0.34;
-   d10 Zn < 0), and the geometry model does **not** extrapolate better.
-3. **Trustworthy uncertainty** - normalized conformal prediction, series-conditional
-   (Mondrian) calibration, and a distance-based applicability domain with selective
-   prediction that restores calibrated coverage on novel chemistry.
+## Findings in one paragraph
+Accuracy rises monotonically with representational richness — composition + coordination (R² ≈ 0.57) → + RDKit descriptors (0.63) → SchNet on 3D geometry (0.77) → DimeNet++ (0.79) — but in-domain accuracy is a poor guide to reliability: under leave-one-series-out and leave-one-metal-out both geometry networks collapse to R² ≤ 0.3 and never beat the simple tabular model on the 4d/5d series, their out-of-domain scores vary by up to 0.3 between training replicates, and standard conformal intervals under-cover on an unseen series (81% vs 90%). Series-conditional (Mondrian) calibration and a distance-based applicability domain restore calibrated, selective predictions.
 
 ## Repository contents
-
 | File | Description |
-|------|-------------|
-| `tmQM.ipynb` | Complete end-to-end notebook (recommended; Colab/Kaggle-ready). |
-| `tmqm.py`    | Equivalent single script (auto-generated from the notebook). |
-| `requirements.txt` | Python dependencies. |
-| `LICENSE`    | MIT. |
+|---|---|
+| `tmQM.ipynb` | Complete end-to-end notebook (Kaggle/Colab GPU). Recommended. |
+| `tmqm.py` | Equivalent single script, auto-generated from the notebook. |
+| `revision_analyses.py` | CPU-only re-analysis (bootstrap CIs, repeated splits, target statistics, outliers, timings) used for the revision; all of it is also inside the notebook. |
+| `requirements.txt`, `LICENSE` (MIT), `.gitignore` | |
 
-## Installation
+## Run
+1. Open `tmQM.ipynb` on Kaggle (recommended: 12-h GPU sessions) or Colab with a GPU runtime.
+2. First pass: set `QUICK = True` in the CONFIG cell and *Run all* (≈ 10 min smoke test). Then `QUICK = False` and *Run all*.
+3. On Kaggle use *Save & Run All (Commit)*; `tmqm_results.zip` appears at the top level of the Output tab.
 
-```bash
-pip install -r requirements.txt
-```
-`torch` is preinstalled on Google Colab and Kaggle GPU runtimes. A **GPU is required**
-for the SchNet stages. The SchNet implementation uses a pure-PyTorch dense radius graph,
-so no `torch_cluster` / `pyg-lib` compilation is needed.
+`PROFILE = "full"` (default) uses the paper's exact settings for every model (SchNet 40/20 epochs; DimeNet++ 3 blocks, 5 Å, 15 epochs) and takes ≈ 10 h on an NVIDIA T4. A time guard defers any fold that would exceed 11.5 h — run the notebook again and it resumes from the saved folds. `PROFILE = "12h"` uses a lighter DimeNet++ (≈ 8 h) for slower GPUs.
 
-## Run everything at once
+No API tokens are required. Two optional extras can be enabled in CONFIG: `USE_TABPFN` (a tuning-free TabPFN baseline; needs a Prior Labs `TABPFN_TOKEN`) and `HF_SYNC` (archive/resume through a private Hugging Face dataset; needs a Hugging Face token with the *Write* role).
 
-**Notebook (recommended):** open `tmQM.ipynb`, enable a GPU runtime, and *Run all*.
-Set `QUICK_TEST = True` in the first cell for a few-minute end-to-end check, then set it
-back to `False` for the full run.
+## What the notebook produces (`tmQM_data/results/`)
+- Tabular: `model_comparison.csv` (with 95% bootstrap CIs), `indomain_repeated_splits.csv`, `xgb_sensitivity.csv`, `timing.json`, `outliers_xgb_gt2eV.csv`, `fig_parity.png`, `fig_shap_beeswarm.png`, `shap_global.csv`, `shap_labels.csv`
+- Target statistics: `gap_statistics.csv`, `figS_gap_hist.png`, `target_shift_loso.csv`
+- Transferability: `transfer_loso.csv`, `transfer_lomo.csv` (with CIs and per-metal target SD), `loso_tabular_per_metal.csv`, `fig_transfer_loso.png`, `fig_transfer_lomo.png`
+- Uncertainty: `conformal_reliability.csv`, `conformal_applicability.csv`, `conformal_mondrian.csv`, `conformal_applicability_domain.csv`, `conformal_selective_curve.csv` and the four `fig_conformal_*.png`
+- Geometry models: `gnn_results.json` (SchNet and DimeNet++: in-domain, LOSO, LOMO-Zn, bootstrap CIs), `predictions_*.csv`, `learning_curves.csv`, `fig_S2_learning_curves.png`, `schnet_on_outliers.csv`, `schnet_best.pt`, `dimenet_best.pt`
+- `final_summary.json` and `tmqm_results.zip`
 
-**Script:**
-```bash
-python tmqm.py
-```
-Edit the `CONFIG` block at the top of the file to toggle `QUICK_TEST` or adjust epochs.
-
-## Runtime
-
-A full GPU run trains ~5 networks (1 main SchNet + 3 leave-one-series-out + 1
-leave-one-metal-out) and takes roughly **2-3 hours on an NVIDIA T4**. Kaggle GPU is
-recommended for long, stable sessions. Lower `SCHNET_EPOCHS` / `TRANSFER_EPOCHS` to
-trade accuracy for speed.
-
-## Outputs
-
-All results are written to `tmQM_data/results/` and bundled into `tmqm_results.zip`:
-
-- `model_comparison.csv`, `shap_global.csv`, `fig_parity.png`, `fig_shap_beeswarm.png`
-- `transfer_loso.csv`, `transfer_lomo.csv`, `fig_transfer_loso.png`, `fig_transfer_lomo.png`
-- `schnet_metrics.json`, `schnet_transfer.json`
-- conformal: `conformal_reliability.csv`, `conformal_applicability.csv`,
-  `conformal_mondrian.csv`, `conformal_applicability_domain.csv`,
-  `conformal_selective_curve.csv`
-- figures: `fig_conformal_reliability.png`, `fig_conformal_applicability.png`,
-  `fig_conformal_mondrian.png`, `fig_conformal_selective.png`
-
-## Reproducibility
-
-A fixed random seed (42) is used throughout. No new DFT or experiments are performed;
-all model inputs are inexpensive, DFT-free quantities derived from the tmQM data.
+## Notes on reproducibility
+A fixed seed (42) is used throughout. Tabular results are deterministic. GPU training of the geometry models is not bit-reproducible (non-deterministic scatter operations), and the paper therefore reports independent training replicates for every SchNet and DimeNet++ fold: in-domain scores are stable to within 0.01, out-of-domain scores are not — which is itself one of the paper's findings.
 
 ## Data and citation
-
-Data: the tmQM dataset (2024 release).
-> Balcells, D.; Skjelstad, B. B. tmQM Dataset - Quantum Geometries and Properties of 86k
-> Transition Metal Complexes. *J. Chem. Inf. Model.* **2020**, *60*, 6135-6146.
-> Dataset repository: https://github.com/uiocompcat/tmQM
-
-If you use this code, please also cite the accompanying paper (see the manuscript).
+tmQM (2024 release): Balcells, D.; Skjelstad, B. B. *J. Chem. Inf. Model.* **2020**, *60*, 6135–6146 — https://github.com/uiocompcat/tmQM
+If you use this code, please cite the accompanying article (Journal of Computational Chemistry, in revision) and the tmQM dataset.
 
 ## License
-
-MIT - see `LICENSE`.
+MIT — see `LICENSE`.
