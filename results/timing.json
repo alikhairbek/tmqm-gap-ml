@@ -1,0 +1,23 @@
+{
+ "Linear": {
+  "fit_s": 0.09484243392944336,
+  "predict_ms_per_complex": 0.00016059062504648297
+ },
+ "RandomForest": {
+  "fit_s": 146.92592072486877,
+  "predict_ms_per_complex": 0.04076740985097676
+ },
+ "XGBoost": {
+  "fit_s": 6.339043140411377,
+  "predict_ms_per_complex": 0.009953675494412506
+ },
+ "LightGBM": {
+  "fit_s": 5.1429901123046875,
+  "predict_ms_per_complex": 0.028548098916636098
+ },
+ "CatBoost": {
+  "fit_s": 10.168283700942993,
+  "predict_ms_per_complex": 0.0008880147593069129
+ },
+ "rdkit_ms_per_complex": 0.8667702668499406
+}
